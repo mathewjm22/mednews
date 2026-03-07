@@ -324,62 +324,72 @@ const App: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                    className={`bg-white border ${article.pmid === 'RSS' ? 'border-orange-200' : 'border-slate-200'} rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow`}
+                    onClick={() => toggleExpand(article.id)}
+                    className={`bg-white border ${article.pmid === 'RSS' ? 'border-orange-200' : 'border-slate-200'} rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group`}
                   >
-                    <div className="p-6">
+                    <div className="p-5 sm:p-6">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-blue-600 mb-1">
-                            {article.journal} • {article.pubDate || 'Recent'}
-                          </p>
-                          <h3 className="text-lg font-bold text-slate-900 leading-tight mb-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded">
+                              {article.journal}
+                            </span>
+                            <span className="text-xs font-medium text-slate-400">
+                              {article.pubDate || 'Recent'}
+                            </span>
+                            {article.pmid === 'RSS' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
+                                RSS
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors">
                             {article.title}
                           </h3>
-                          <p className="text-sm text-slate-500 line-clamp-1 mb-4">
+
+                          <p className="text-sm text-slate-600 line-clamp-1 mb-3">
                             {article.authors.join(', ')}
                           </p>
                         </div>
+
                         <div className="flex flex-col items-end gap-2 shrink-0">
                           {article.pmid !== 'RSS' && (
                             <a
                               href={`https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center p-2 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center justify-center p-2 bg-slate-50 text-slate-500 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors"
                               title="View on PubMed"
                             >
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           )}
-                          {article.pmid === 'RSS' && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                              RSS Source
-                            </span>
-                          )}
+
                           <a
                             href={`https://trends.google.com/trends/explore?q=${encodeURIComponent(article.title.split(' ').slice(0, 3).join(' ').replace(/[^\w\s]/g, ''))}&hl=en-US`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-2 px-2 py-1 text-xs font-medium bg-red-50 text-red-600 rounded-md border border-red-100 hover:bg-red-100 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center justify-center p-2 bg-slate-50 text-slate-500 rounded hover:bg-red-50 hover:text-red-600 transition-colors"
                             title="View Search Trends for this topic"
                           >
-                            <Activity className="h-3 w-3" />
-                            Trend
+                            <Activity className="h-4 w-4" />
                           </a>
                         </div>
                       </div>
 
                       {/* Abstract Expansion */}
-                      <button
-                        onClick={() => toggleExpand(article.id)}
-                        className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors mt-2"
-                      >
-                        {expandedArticleId === article.id ? (
-                          <>Hide Abstract <ChevronUp className="h-4 w-4" /></>
-                        ) : (
-                          <>Show Abstract <ChevronDown className="h-4 w-4" /></>
-                        )}
-                      </button>
+                      <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-50">
+                        <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-1">
+                          {expandedArticleId === article.id ? (
+                            <>Hide Full Abstract <ChevronUp className="h-4 w-4" /></>
+                          ) : (
+                            <>Read Full Abstract <ChevronDown className="h-4 w-4" /></>
+                          )}
+                        </span>
+                      </div>
 
                       <AnimatePresence>
                         {expandedArticleId === article.id && (
@@ -392,14 +402,14 @@ const App: React.FC = () => {
                             <div className="mt-4 pt-4 border-t border-slate-100">
                               {article.abstract ? (
                                 <div
-                                  className="text-sm text-slate-700 leading-relaxed space-y-2"
+                                  className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
                                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
                                 />
                               ) : (
                                 <p className="text-sm text-slate-500 italic">No abstract available for this article.</p>
                               )}
-                              <div className="mt-4 flex gap-2">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <div className="mt-6 flex gap-2">
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-mono bg-slate-100 text-slate-500">
                                   PMID: {article.pmid}
                                 </span>
                               </div>
