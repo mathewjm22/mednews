@@ -13,6 +13,36 @@ const CLINICAL_SPECIALTIES = [
   'Cardiothoracic Surgery', 'Vascular Surgery', 'Plastic Surgery'
 ];
 
+const STUDY_TYPES = [
+  { label: 'RCT', query: '"Randomized Controlled Trial"[Publication Type]', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', activeClass: 'bg-indigo-100 text-indigo-800 border-indigo-200 ring-2 ring-offset-1 ring-indigo-100' },
+  { label: 'Clinical Study', query: '"Clinical Trial"[Publication Type] OR "Clinical Study"[Publication Type]', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', activeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200 ring-2 ring-offset-1 ring-emerald-100' },
+  { label: 'Review Article', query: '"Review"[Publication Type]', color: 'bg-amber-100 text-amber-800 border-amber-200', activeClass: 'bg-amber-100 text-amber-800 border-amber-200 ring-2 ring-offset-1 ring-amber-100' },
+  { label: 'Cochrane Review', query: '"Systematic Review"[Publication Type] AND "Cochrane Database Syst Rev"[Journal]', color: 'bg-purple-100 text-purple-800 border-purple-200', activeClass: 'bg-purple-100 text-purple-800 border-purple-200 ring-2 ring-offset-1 ring-purple-100' },
+  { label: 'Case Report', query: '"Case Reports"[Publication Type]', color: 'bg-rose-100 text-rose-800 border-rose-200', activeClass: 'bg-rose-100 text-rose-800 border-rose-200 ring-2 ring-offset-1 ring-rose-100' },
+];
+
+function getStudyTypeTags(article: Article): { label: string, color: string }[] {
+  if (!article.publicationTypes) return [];
+
+  const tags: { label: string, color: string }[] = [];
+  const types = article.publicationTypes.map(t => t.toLowerCase());
+
+  // Prioritize Cochrane
+  if (article.journal.toLowerCase().includes('cochrane') || types.includes('cochrane review')) {
+    tags.push({ label: 'Cochrane Review', color: STUDY_TYPES.find(t => t.label === 'Cochrane Review')!.color });
+  } else if (types.includes('randomized controlled trial')) {
+    tags.push({ label: 'RCT', color: STUDY_TYPES.find(t => t.label === 'RCT')!.color });
+  } else if (types.includes('clinical trial') || types.includes('clinical study')) {
+    tags.push({ label: 'Clinical Study', color: STUDY_TYPES.find(t => t.label === 'Clinical Study')!.color });
+  } else if (types.includes('review') || types.includes('systematic review')) {
+    tags.push({ label: 'Review Article', color: STUDY_TYPES.find(t => t.label === 'Review Article')!.color });
+  } else if (types.includes('case reports') || types.includes('case report')) {
+    tags.push({ label: 'Case Report', color: STUDY_TYPES.find(t => t.label === 'Case Report')!.color });
+  }
+
+  return tags;
+}
+
 const App: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [rssArticles, setRssArticles] = useState<Article[]>([]);
@@ -22,6 +52,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [selectedStudyTypes, setSelectedStudyTypes] = useState<string[]>([]);
 
   // Active settings state (used for fetching)
   const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '');
@@ -48,7 +79,7 @@ const App: React.FC = () => {
       setError(null);
       try {
         // Fetch pubmed data
-        const { articles: pubmedData, totalPages, totalResults } = await fetchArticles(searchTerm, selectedSpecialties, apiKey, page, 10);
+        const { articles: pubmedData, totalPages, totalResults } = await fetchArticles(searchTerm, selectedSpecialties, selectedStudyTypes, apiKey, page, 10);
 
         // Fetch RSS data
         let rssData: Article[] = [];
@@ -72,7 +103,7 @@ const App: React.FC = () => {
     };
 
     loadArticles();
-  }, [searchTerm, selectedSpecialties, page, apiKey, rssFeeds]);
+  }, [searchTerm, selectedSpecialties, selectedStudyTypes, page, apiKey, rssFeeds]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +132,15 @@ const App: React.FC = () => {
         : [...prev, specialty]
     );
     setPage(1); // Reset page on filter change
+  };
+
+  const toggleStudyType = (studyType: string) => {
+    setSelectedStudyTypes(prev =>
+      prev.includes(studyType)
+        ? prev.filter(s => s !== studyType)
+        : [...prev, studyType]
+    );
+    setPage(1);
   };
 
   return (
@@ -268,23 +308,44 @@ const App: React.FC = () => {
           </div>
         ) : (
           <>
-          {/* Specialty Filters */}
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Filter by Clinical Specialty</h3>
-            <div className="flex flex-wrap gap-2">
-              {CLINICAL_SPECIALTIES.map(specialty => (
-                <button
-                  key={specialty}
-                  onClick={() => toggleSpecialty(specialty)}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                    selectedSpecialties.includes(specialty)
-                      ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  {specialty}
-                </button>
-              ))}
+          {/* Filters */}
+          <div className="mb-8 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Filter by Clinical Specialty</h3>
+              <div className="flex flex-wrap gap-2">
+                {CLINICAL_SPECIALTIES.map(specialty => (
+                  <button
+                    key={specialty}
+                    onClick={() => toggleSpecialty(specialty)}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                      selectedSpecialties.includes(specialty)
+                        ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    {specialty}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Filter by Study Type</h3>
+              <div className="flex flex-wrap gap-2">
+                {STUDY_TYPES.map(type => (
+                  <button
+                    key={type.label}
+                    onClick={() => toggleStudyType(type.label)}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                      selectedStudyTypes.includes(type.label)
+                        ? type.activeClass
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -342,6 +403,11 @@ const App: React.FC = () => {
                                 RSS
                               </span>
                             )}
+                            {getStudyTypeTags(article).map(tag => (
+                              <span key={tag.label} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${tag.color}`}>
+                                {tag.label}
+                              </span>
+                            ))}
                           </div>
 
                           <h3 className="text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors">

@@ -6,6 +6,7 @@ export interface Article {
   pubDate: string;
   authors: string[];
   pmid: string;
+  publicationTypes: string[];
 }
 
 const JOURNALS = [
@@ -27,6 +28,7 @@ const JOURNALS = [
   '"Cleveland Clinic Journal of Medicine"[Journal]',
   '"Mayo Clinic Proceedings"[Journal]',
   '"Annals of Emergency Medicine"[Journal]',
+  '"Cochrane Database of Systematic Reviews"[Journal]',
   '"Chest"[Journal]',
   '"Circulation"[Journal]',
   '"Journal of the American College of Cardiology"[Journal]',
@@ -40,9 +42,20 @@ const JOURNALS = [
 
 const BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
+// Define STUDY_TYPES locally or extract to a shared constants file if needed.
+// Repeating here to avoid circular dependency with App.tsx for simplicity.
+const STUDY_TYPES_MAP: Record<string, string> = {
+  'RCT': '"Randomized Controlled Trial"[Publication Type]',
+  'Clinical Study': '("Clinical Trial"[Publication Type] OR "Clinical Study"[Publication Type])',
+  'Review Article': '"Review"[Publication Type]',
+  'Cochrane Review': '("Systematic Review"[Publication Type] AND "Cochrane Database Syst Rev"[Journal])',
+  'Case Report': '"Case Reports"[Publication Type]',
+};
+
 export const fetchArticles = async (
   keyword: string = '',
   specialties: string[] = [],
+  studyTypes: string[] = [],
   apiKey: string = '',
   page: number = 1,
   articlesPerPage: number = 10
@@ -51,10 +64,19 @@ export const fetchArticles = async (
     const journalQuery = `(${JOURNALS.join(' OR ')})`;
     const keywordQuery = keyword ? ` AND (${keyword})` : '';
     const specialtiesQuery = specialties.length > 0 ? ` AND (${specialties.map(s => `"${s}"[Mesh] OR "${s}"[Title/Abstract]`).join(' OR ')})` : '';
+
+    let studyTypesQuery = '';
+    if (studyTypes.length > 0) {
+      const typeQueries = studyTypes.map(type => STUDY_TYPES_MAP[type]).filter(Boolean);
+      if (typeQueries.length > 0) {
+        studyTypesQuery = ` AND (${typeQueries.join(' OR ')})`;
+      }
+    }
+
     const pediatricsExclusion = ' NOT "Pediatrics"[Mesh] NOT "Child"[Mesh] NOT "Infant"[Mesh]';
 
     // Sort by publication date (most recent first)
-    const query = `${journalQuery}${keywordQuery}${specialtiesQuery}${pediatricsExclusion}`;
+    const query = `${journalQuery}${keywordQuery}${specialtiesQuery}${studyTypesQuery}${pediatricsExclusion}`;
 
     const retstart = (page - 1) * articlesPerPage;
 
@@ -141,6 +163,15 @@ export const fetchArticles = async (
         return `${lastName} ${initials}`.trim();
       }).filter(Boolean);
 
+      // Publication Types
+      const pubTypeNodes = articleNode.getElementsByTagName('PublicationType');
+      let publicationTypes = Array.from(pubTypeNodes).map(node => node.textContent || '').filter(Boolean);
+
+      // Override for Cochrane Reviews
+      if (journal.includes("Cochrane")) {
+        publicationTypes.push("Cochrane Review");
+      }
+
       return {
         id: pmid,
         pmid,
@@ -149,6 +180,7 @@ export const fetchArticles = async (
         journal,
         pubDate,
         authors,
+        publicationTypes,
       };
     });
 

@@ -39,7 +39,8 @@ export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
           abstract: description.trim(),
           authors: [author.trim()],
           journal: new URL(url).hostname.replace('www.', ''),
-          pubDate: pubDate ? new Date(pubDate).toLocaleDateString() : 'Recent'
+          pubDate: pubDate ? new Date(pubDate).toLocaleDateString() : 'Recent',
+          publicationTypes: []
         });
       });
     } catch (error) {
