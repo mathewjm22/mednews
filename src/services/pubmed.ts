@@ -26,7 +26,6 @@ const JOURNALS = [
   '"American Journal of Respiratory and Critical Care Medicine"[Journal]',
   '"The American Journal of Psychiatry"[Journal]',
   '"Neurology"[Journal]',
-  '"Pediatrics"[Journal]',
   '"Obstetrics and Gynecology"[Journal]',
   '"The Journal of Urology"[Journal]'
 ];
@@ -35,6 +34,7 @@ const BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
 export const fetchArticles = async (
   keyword: string = '',
+  specialties: string[] = [],
   apiKey: string = '',
   page: number = 1,
   articlesPerPage: number = 10
@@ -42,8 +42,11 @@ export const fetchArticles = async (
   try {
     const journalQuery = `(${JOURNALS.join(' OR ')})`;
     const keywordQuery = keyword ? ` AND (${keyword})` : '';
+    const specialtiesQuery = specialties.length > 0 ? ` AND (${specialties.map(s => `"${s}"[Mesh] OR "${s}"[Title/Abstract]`).join(' OR ')})` : '';
+    const pediatricsExclusion = ' NOT "Pediatrics"[Mesh] NOT "Child"[Mesh] NOT "Infant"[Mesh]';
+
     // Sort by publication date (most recent first)
-    const query = `${journalQuery}${keywordQuery}`;
+    const query = `${journalQuery}${keywordQuery}${specialtiesQuery}${pediatricsExclusion}`;
 
     const retstart = (page - 1) * articlesPerPage;
 

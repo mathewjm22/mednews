@@ -5,6 +5,14 @@ import { fetchArticles, type Article } from './services/pubmed';
 import { fetchRssFeeds } from './services/rss';
 import DOMPurify from 'dompurify';
 
+const CLINICAL_SPECIALTIES = [
+  'Cardiology', 'Neurology', 'Oncology', 'Gastroenterology',
+  'Pulmonology', 'Endocrinology', 'Nephrology', 'Rheumatology',
+  'Infectious Disease', 'Hematology', 'Dermatology', 'Psychiatry',
+  'General Surgery', 'Neurosurgery', 'Orthopedic Surgery',
+  'Cardiothoracic Surgery', 'Vascular Surgery', 'Plastic Surgery'
+];
+
 const App: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [rssArticles, setRssArticles] = useState<Article[]>([]);
@@ -13,6 +21,7 @@ const App: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
 
   // Active settings state (used for fetching)
   const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '');
@@ -29,6 +38,9 @@ const App: React.FC = () => {
 
   const [expandedArticleId, setExpandedArticleId] = useState<string | null>(null);
 
+  // View state: 'home' or 'trends'
+  const [activeView, setActiveView] = useState<'home' | 'trends'>('home');
+
   // Load articles
   useEffect(() => {
     const loadArticles = async () => {
@@ -36,7 +48,7 @@ const App: React.FC = () => {
       setError(null);
       try {
         // Fetch pubmed data
-        const { articles: pubmedData, totalPages, totalResults } = await fetchArticles(searchTerm, apiKey, page, 10);
+        const { articles: pubmedData, totalPages, totalResults } = await fetchArticles(searchTerm, selectedSpecialties, apiKey, page, 10);
 
         // Fetch RSS data
         let rssData: Article[] = [];
@@ -60,7 +72,7 @@ const App: React.FC = () => {
     };
 
     loadArticles();
-  }, [searchTerm, page, apiKey, rssFeeds]);
+  }, [searchTerm, selectedSpecialties, page, apiKey, rssFeeds]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +94,15 @@ const App: React.FC = () => {
     setExpandedArticleId(expandedArticleId === id ? null : id);
   };
 
+  const toggleSpecialty = (specialty: string) => {
+    setSelectedSpecialties(prev =>
+      prev.includes(specialty)
+        ? prev.filter(s => s !== specialty)
+        : [...prev, specialty]
+    );
+    setPage(1); // Reset page on filter change
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header */}
@@ -95,9 +116,25 @@ const App: React.FC = () => {
               </h1>
             </div>
 
-            <form onSubmit={handleSearch} className="flex-1 max-w-2xl flex">
-              <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setActiveView('home')}
+                className={`text-sm font-medium ${activeView === 'home' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Feed
+              </button>
+              <button
+                onClick={() => setActiveView('trends')}
+                className={`text-sm font-medium ${activeView === 'trends' ? 'text-red-500' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Top Medical Trends
+              </button>
+            </div>
+
+            {activeView === 'home' && (
+              <form onSubmit={handleSearch} className="flex-1 max-w-2xl flex">
+                <div className="relative w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
@@ -108,13 +145,14 @@ const App: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-l-md leading-5 bg-white placeholder-slate-500 focus:outline-none focus:placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
                 />
               </div>
-              <button
-                type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                Search
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  Search
+                </button>
+              </form>
+            )}
 
             <button
               onClick={() => setShowSettings(!showSettings)}
@@ -183,7 +221,74 @@ const App: React.FC = () => {
       </AnimatePresence>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+
+        {activeView === 'trends' ? (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <Activity className="h-6 w-6 text-red-500" />
+                Top Trending Medical Searches on Google
+              </h2>
+              <p className="text-slate-600 mt-2">Showing the top 15 trending clinical topics over the past month.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {[
+                'Semaglutide', 'Atrial Fibrillation', 'COVID-19', 'RSV Vaccine',
+                'Ozempic', 'Mounjaro', 'Heart Failure', 'Monkeypox',
+                'AI in Medicine', 'GLP-1', 'Telehealth', 'Avian Flu',
+                'Metformin', 'Melatonin', 'Long COVID'
+              ].map((topic, index) => (
+                <div key={topic} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col items-center justify-center text-center">
+                  <div className="text-4xl font-black text-slate-100 mb-2">#{index + 1}</div>
+                  <h3 className="font-bold text-lg text-slate-800 mb-3">{topic}</h3>
+                  <div className="flex flex-col gap-2 w-full mt-auto">
+                    <button
+                      onClick={() => {
+                        setSearchInput(topic);
+                        setSearchTerm(topic);
+                        setPage(1);
+                        setActiveView('home');
+                      }}
+                      className="text-sm w-full py-2 bg-blue-50 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      Search Literature
+                    </button>
+                    <a
+                      href={`https://trends.google.com/trends/explore?q=${encodeURIComponent(topic)}&hl=en-US`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm w-full py-2 bg-slate-50 text-slate-600 font-medium rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors inline-flex items-center justify-center gap-1"
+                    >
+                      View Trends <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+          {/* Specialty Filters */}
+          <div className="mb-8">
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Filter by Clinical Specialty</h3>
+            <div className="flex flex-wrap gap-2">
+              {CLINICAL_SPECIALTIES.map(specialty => (
+                <button
+                  key={specialty}
+                  onClick={() => toggleSpecialty(specialty)}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                    selectedSpecialties.includes(specialty)
+                      ? 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  {specialty}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8">
 
           {/* Main Content Area */}
           <div className="flex-1">
@@ -251,6 +356,16 @@ const App: React.FC = () => {
                               RSS Source
                             </span>
                           )}
+                          <a
+                            href={`https://trends.google.com/trends/explore?q=${encodeURIComponent(article.title.split(' ').slice(0, 3).join(' ').replace(/[^\w\s]/g, ''))}&hl=en-US`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 mt-2 px-2 py-1 text-xs font-medium bg-red-50 text-red-600 rounded-md border border-red-100 hover:bg-red-100 transition-colors"
+                            title="View Search Trends for this topic"
+                          >
+                            <Activity className="h-3 w-3" />
+                            Trend
+                          </a>
                         </div>
                       </div>
 
@@ -364,7 +479,9 @@ const App: React.FC = () => {
             </div>
           </div>
 
-        </div>
+          </div>
+          </>
+        )}
       </main>
     </div>
   );
