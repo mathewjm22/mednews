@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Settings, ChevronDown, ChevronUp, ExternalLink, Activity, BookOpen, Loader2 } from 'lucide-react';
-import { fetchArticles, type Article } from './services/pubmed';
+import { Search, Settings, ChevronDown, ChevronUp, ExternalLink, Activity, BookOpen, Loader2, Star } from 'lucide-react';
+import { fetchArticles, fetchSimilarArticles, isTrackedJournal, type Article } from './services/pubmed';
 import { fetchRssFeeds } from './services/rss';
 import DOMPurify from 'dompurify';
 
@@ -54,6 +54,13 @@ const App: React.FC = () => {
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedStudyTypes, setSelectedStudyTypes] = useState<string[]>([]);
 
+  // Date filter state
+  const currentDate = new Date();
+  const defaultYear = (currentDate.getFullYear() - 1).toString();
+  const defaultMonth = (currentDate.getMonth() + 1).toString();
+  const [startYear, setStartYear] = useState<string>(defaultYear);
+  const [startMonth, setStartMonth] = useState<string>(defaultMonth);
+
   // Active settings state (used for fetching)
   const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '');
   const [rssFeeds, setRssFeeds] = useState<string>(localStorage.getItem('rss_feeds') || '');
@@ -69,6 +76,10 @@ const App: React.FC = () => {
 
   const [expandedArticleId, setExpandedArticleId] = useState<string | null>(null);
 
+  // Similar articles state
+  const [similarArticles, setSimilarArticles] = useState<Record<string, Article[]>>({});
+  const [loadingSimilar, setLoadingSimilar] = useState<Record<string, boolean>>({});
+
   // View state: 'home' or 'trends'
   const [activeView, setActiveView] = useState<'home' | 'trends'>('home');
 
@@ -79,7 +90,16 @@ const App: React.FC = () => {
       setError(null);
       try {
         // Fetch pubmed data
-        const { articles: pubmedData, totalPages, totalResults } = await fetchArticles(searchTerm, selectedSpecialties, selectedStudyTypes, apiKey, page, 10);
+        const { articles: pubmedData, totalPages, totalResults } = await fetchArticles(
+          searchTerm,
+          selectedSpecialties,
+          selectedStudyTypes,
+          apiKey,
+          page,
+          10,
+          startYear,
+          startMonth
+        );
 
         // Fetch RSS data
         let rssData: Article[] = [];
@@ -103,7 +123,7 @@ const App: React.FC = () => {
     };
 
     loadArticles();
-  }, [searchTerm, selectedSpecialties, selectedStudyTypes, page, apiKey, rssFeeds]);
+  }, [searchTerm, selectedSpecialties, selectedStudyTypes, page, apiKey, rssFeeds, startYear, startMonth]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,8 +141,22 @@ const App: React.FC = () => {
     setPage(1);
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedArticleId(expandedArticleId === id ? null : id);
+  const toggleExpand = async (id: string, pmid: string) => {
+    const isExpanding = expandedArticleId !== id;
+    setExpandedArticleId(isExpanding ? id : null);
+
+    // If expanding and we don't have similar articles for this id yet, fetch them
+    if (isExpanding && pmid && pmid !== 'RSS' && !similarArticles[id]) {
+      setLoadingSimilar(prev => ({ ...prev, [id]: true }));
+      try {
+        const related = await fetchSimilarArticles(pmid, apiKey);
+        setSimilarArticles(prev => ({ ...prev, [id]: related }));
+      } catch (err) {
+        console.error("Failed to fetch similar articles:", err);
+      } finally {
+        setLoadingSimilar(prev => ({ ...prev, [id]: false }));
+      }
+    }
   };
 
   const toggleSpecialty = (specialty: string) => {
@@ -347,6 +381,41 @@ const App: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider w-full sm:w-auto">Date Range (Start)</h3>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <select
+                  value={startMonth}
+                  onChange={(e) => { setStartMonth(e.target.value); setPage(1); }}
+                  className="block w-full sm:w-32 pl-3 pr-10 py-1.5 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                >
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+
+                <select
+                  value={startYear}
+                  onChange={(e) => { setStartYear(e.target.value); setPage(1); }}
+                  className="block w-full sm:w-28 pl-3 pr-10 py-1.5 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                >
+                  {Array.from({ length: 20 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+              <span className="text-xs text-slate-500 ml-2 hidden sm:inline-block">Showing results from selected date to present.</span>
+            </div>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-8">
@@ -385,7 +454,7 @@ const App: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                    onClick={() => toggleExpand(article.id)}
+                    onClick={() => toggleExpand(article.id, article.pmid)}
                     className={`bg-white border ${article.pmid === 'RSS' ? 'border-orange-200' : 'border-slate-200'} rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group`}
                   >
                     <div className="p-5 sm:p-6">
@@ -466,18 +535,64 @@ const App: React.FC = () => {
                             className="overflow-hidden"
                           >
                             <div className="mt-4 pt-4 border-t border-slate-100">
-                              {article.abstract ? (
-                                <div
-                                  className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
-                                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
-                                />
-                              ) : (
-                                <p className="text-sm text-slate-500 italic">No abstract available for this article.</p>
-                              )}
-                              <div className="mt-6 flex gap-2">
-                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-mono bg-slate-100 text-slate-500">
-                                  PMID: {article.pmid}
-                                </span>
+                              <div className="flex flex-col xl:flex-row gap-6">
+                                <div className="flex-1">
+                                  {article.abstract ? (
+                                    <div
+                                      className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
+                                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-slate-500 italic">No abstract available for this article.</p>
+                                  )}
+                                  <div className="mt-6 flex gap-2">
+                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-mono bg-slate-100 text-slate-500">
+                                      PMID: {article.pmid}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Similar Studies Panel */}
+                                {article.pmid !== 'RSS' && (
+                                  <div className="w-full xl:w-80 shrink-0 bg-slate-50 rounded-lg p-4 border border-slate-100">
+                                    <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                      <BookOpen className="h-4 w-4 text-slate-500" />
+                                      Similar Studies
+                                    </h4>
+
+                                    {loadingSimilar[article.id] ? (
+                                      <div className="flex justify-center items-center py-8">
+                                        <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                                      </div>
+                                    ) : (similarArticles[article.id] && similarArticles[article.id].length > 0) ? (
+                                      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+                                        {similarArticles[article.id].map(similar => (
+                                          <div key={similar.pmid} className="text-sm bg-white p-3 rounded border border-slate-200 shadow-sm relative group/similar">
+                                            <a
+                                              href={`https://pubmed.ncbi.nlm.nih.gov/${similar.pmid}/`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="block hover:text-blue-600 font-medium text-slate-800 leading-snug mb-1"
+                                            >
+                                              {similar.title}
+                                            </a>
+                                            <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2">
+                                              <span className="text-xs text-slate-500">{similar.journal}</span>
+                                              {isTrackedJournal(similar.journal) && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                  <Star className="h-3 w-3 fill-amber-500" /> Top Journal
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-slate-500 italic py-2">No similar studies found.</p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </motion.div>
