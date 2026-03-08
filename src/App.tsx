@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Settings, ChevronDown, ChevronUp, ExternalLink, Activity, BookOpen, Loader2, Star } from 'lucide-react';
+import { Search, Settings, ChevronDown, ChevronUp, ExternalLink, Activity, BookOpen, Loader2, Star, Rss } from 'lucide-react';
 import { fetchArticles, fetchSimilarArticles, isTrackedJournal, type Article, JOURNALS } from './services/pubmed';
 import { fetchRssFeeds } from './services/rss';
 import DOMPurify from 'dompurify';
@@ -64,9 +64,12 @@ const App: React.FC = () => {
   const [startYear, setStartYear] = useState<string>(defaultYear);
   const [startMonth, setStartMonth] = useState<string>(defaultMonth);
 
+  // Default RSS Feeds
+  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml`;
+
   // Active settings state (used for fetching)
   const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '');
-  const [rssFeeds, setRssFeeds] = useState<string>(localStorage.getItem('rss_feeds') || '');
+  const [rssFeeds, setRssFeeds] = useState<string>(localStorage.getItem('rss_feeds') || DEFAULT_RSS_FEEDS);
 
   // Draft settings state (used in the modal)
   const [draftApiKey, setDraftApiKey] = useState(apiKey);
@@ -83,12 +86,15 @@ const App: React.FC = () => {
   const [similarArticles, setSimilarArticles] = useState<Record<string, Article[]>>({});
   const [loadingSimilar, setLoadingSimilar] = useState<Record<string, boolean>>({});
 
-  // View state: 'home' or 'trends'
-  const [activeView, setActiveView] = useState<'home' | 'trends'>('home');
+  // View state: 'home', 'trends', or 'news'
+  const [activeView, setActiveView] = useState<'home' | 'trends' | 'news'>('home');
 
-  // Load articles
+  // Load main articles (PubMed)
   useEffect(() => {
     const loadArticles = async () => {
+      // Don't fetch PubMed data if we're on trends or news view to save API calls
+      if (activeView === 'trends' || activeView === 'news') return;
+
       setLoading(true);
       setError(null);
       try {
@@ -105,19 +111,9 @@ const App: React.FC = () => {
           startMonth
         );
 
-        // Fetch RSS data
-        let rssData: Article[] = [];
-        if (rssFeeds.trim()) {
-           const urls = rssFeeds.split('\n').map(u => u.trim()).filter(u => u);
-           if (urls.length > 0) {
-             rssData = await fetchRssFeeds(urls);
-           }
-        }
-
         setArticles(pubmedData);
-        setRssArticles(rssData);
         setTotalPages(totalPages);
-        setTotalResults(totalResults + rssData.length);
+        setTotalResults(totalResults);
       } catch (err: unknown) {
         console.error(err);
         setError('Failed to fetch articles. Please try again later or check your API key.');
@@ -127,7 +123,33 @@ const App: React.FC = () => {
     };
 
     loadArticles();
-  }, [searchTerm, selectedSpecialties, selectedStudyTypes, selectedJournals, page, apiKey, rssFeeds, startYear, startMonth]);
+  }, [searchTerm, selectedSpecialties, selectedStudyTypes, selectedJournals, page, apiKey, startYear, startMonth, activeView]);
+
+  // Load RSS Feeds
+  useEffect(() => {
+    const loadRss = async () => {
+      // Only fetch RSS if on the news view or if we have no rssArticles yet
+      if (activeView !== 'news' && rssArticles.length > 0) return;
+
+      try {
+        setLoading(true);
+        let rssData: Article[] = [];
+        if (rssFeeds.trim()) {
+           const urls = rssFeeds.split('\n').map(u => u.trim()).filter(u => u);
+           if (urls.length > 0) {
+             rssData = await fetchRssFeeds(urls);
+           }
+        }
+        setRssArticles(rssData);
+      } catch (err) {
+        console.error("Failed to load RSS feeds", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRss();
+  }, [rssFeeds, activeView, rssArticles.length]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,6 +241,12 @@ const App: React.FC = () => {
                 className={`text-sm font-medium ${activeView === 'trends' ? 'text-red-500' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 Top Medical Trends
+              </button>
+              <button
+                onClick={() => setActiveView('news')}
+                className={`text-sm font-medium ${activeView === 'news' ? 'text-orange-500' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                News
               </button>
             </div>
 
@@ -313,7 +341,131 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {activeView === 'trends' ? (
+        {activeView === 'news' ? (
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-8 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <Rss className="h-6 w-6 text-orange-500" />
+                  Latest Medical News
+                </h2>
+                <p className="text-slate-600 mt-2">Aggregated from Medscape, Medical News Today, and your custom feeds.</p>
+              </div>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100"
+              >
+                <Settings className="h-4 w-4" /> Manage Feeds
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <Loader2 className="h-8 w-8 text-orange-500 animate-spin" />
+              </div>
+            ) : rssArticles.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
+                <p className="text-slate-500 text-lg">No news found. Check your RSS feed settings.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {rssArticles.map((article, index) => (
+                  <motion.div
+                    key={article.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    onClick={() => toggleExpand(article.id, article.pmid)}
+                    className="bg-white border border-orange-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="p-5 sm:p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
+                              RSS
+                            </span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded">
+                              {article.journal}
+                            </span>
+                            <span className="text-xs font-medium text-slate-400">
+                              {article.pubDate || 'Recent'}
+                            </span>
+                          </div>
+
+                          <h3 className="text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors">
+                            {article.title}
+                          </h3>
+
+                          <p className="text-sm text-slate-600 line-clamp-1 mb-3">
+                            {article.authors.join(', ')}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <a
+                            href={article.id.replace('rss-', '')} // Simple way to reconstruct URL if guid was used
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => {
+                                // If it's a real URL, open it, otherwise try to extract it from the id
+                                if (article.id.startsWith('http')) {
+                                   // do nothing, let default behavior happen
+                                } else {
+                                   e.preventDefault();
+                                   const match = article.id.match(/rss-(https?:\/\/[^\-]+)-/);
+                                   if (match && match[1]) {
+                                      window.open(match[1], '_blank');
+                                   }
+                                }
+                                e.stopPropagation();
+                            }}
+                            className="inline-flex items-center justify-center p-2 bg-slate-50 text-slate-500 rounded hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                            title="Read Original Article"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-50">
+                        <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-1">
+                          {expandedArticleId === article.id ? (
+                            <>Hide Summary <ChevronUp className="h-4 w-4" /></>
+                          ) : (
+                            <>Read Summary <ChevronDown className="h-4 w-4" /></>
+                          )}
+                        </span>
+                      </div>
+
+                      <AnimatePresence>
+                        {expandedArticleId === article.id && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              {article.abstract ? (
+                                <div
+                                  className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
+                                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
+                                />
+                              ) : (
+                                <p className="text-sm text-slate-500 italic">No summary available.</p>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : activeView === 'trends' ? (
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -518,13 +670,13 @@ const App: React.FC = () => {
               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
                 <p className="text-red-700">{error}</p>
               </div>
-            ) : (articles.length === 0 && rssArticles.length === 0) ? (
+            ) : (articles.length === 0) ? (
               <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
                 <p className="text-slate-500 text-lg">No articles found. Try a different search term.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {[...rssArticles, ...articles].map((article, index) => (
+                {articles.map((article, index) => (
                   <motion.div
                     key={article.id}
                     initial={{ opacity: 0, y: 20 }}
