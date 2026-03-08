@@ -7,6 +7,7 @@ export interface Article {
   authors: string[];
   pmid: string;
   publicationTypes: string[];
+  imageUrl?: string;
 }
 
 export const JOURNALS = [
