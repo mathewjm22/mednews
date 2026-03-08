@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Settings, ChevronDown, ChevronUp, ExternalLink, Activity, BookOpen, Loader2, Star } from 'lucide-react';
-import { fetchArticles, fetchSimilarArticles, isTrackedJournal, type Article } from './services/pubmed';
+import { fetchArticles, fetchSimilarArticles, isTrackedJournal, type Article, JOURNALS } from './services/pubmed';
 import { fetchRssFeeds } from './services/rss';
 import DOMPurify from 'dompurify';
 
@@ -54,6 +54,8 @@ const App: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedStudyTypes, setSelectedStudyTypes] = useState<string[]>([]);
+  const [selectedJournals, setSelectedJournals] = useState<string[]>(JOURNALS);
+  const [showJournalsFilter, setShowJournalsFilter] = useState(false);
 
   // Date filter state
   const currentDate = new Date();
@@ -95,6 +97,7 @@ const App: React.FC = () => {
           searchTerm,
           selectedSpecialties,
           selectedStudyTypes,
+          selectedJournals,
           apiKey,
           page,
           10,
@@ -124,7 +127,7 @@ const App: React.FC = () => {
     };
 
     loadArticles();
-  }, [searchTerm, selectedSpecialties, selectedStudyTypes, page, apiKey, rssFeeds, startYear, startMonth]);
+  }, [searchTerm, selectedSpecialties, selectedStudyTypes, selectedJournals, page, apiKey, rssFeeds, startYear, startMonth]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +179,19 @@ const App: React.FC = () => {
         : [...prev, studyType]
     );
     setPage(1);
+  };
+
+  const toggleJournal = (journal: string) => {
+    setSelectedJournals(prev =>
+      prev.includes(journal)
+        ? prev.filter(j => j !== journal)
+        : [...prev, journal]
+    );
+    setPage(1);
+  };
+
+  const cleanJournalName = (journalString: string) => {
+    return journalString.replace(/\[Journal\]/i, '').replace(/"/g, '');
   };
 
   return (
@@ -381,6 +397,65 @@ const App: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={() => setShowJournalsFilter(!showJournalsFilter)}
+                  className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center hover:text-slate-800 transition-colors"
+                >
+                  Filter by Journal {showJournalsFilter ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
+                </button>
+                {showJournalsFilter && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setSelectedJournals(JOURNALS); setPage(1); }}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      onClick={() => { setSelectedJournals([]); setPage(1); }}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Unselect All
+                    </button>
+                  </div>
+                )}
+              </div>
+              <AnimatePresence>
+                {showJournalsFilter && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+                      {JOURNALS.map(journal => (
+                        <label key={journal} className="flex items-start space-x-2 p-2 rounded hover:bg-slate-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            checked={selectedJournals.includes(journal)}
+                            onChange={() => toggleJournal(journal)}
+                          />
+                          <span className="text-sm text-slate-700 leading-tight">
+                            {cleanJournalName(journal)}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedJournals.length === 0 && (
+                       <p className="text-xs text-amber-600 mt-2 bg-amber-50 p-2 rounded border border-amber-200">
+                         No journals selected. Showing results from all tracked journals by default.
+                       </p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
