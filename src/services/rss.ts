@@ -29,6 +29,39 @@ export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
         const pubDate = item.querySelector('pubDate, published, updated')?.textContent || '';
         const author = item.querySelector('creator, author > name')?.textContent || 'Unknown Author';
 
+        // Extract an image if available
+        let imageUrl = '';
+
+        // 1. Try media:content
+        const mediaContent = item.getElementsByTagName('media:content');
+        for (let i = 0; i < mediaContent.length; i++) {
+          const type = mediaContent[i].getAttribute('type') || '';
+          const urlAttr = mediaContent[i].getAttribute('url');
+          if (type.startsWith('image/') && urlAttr) {
+            imageUrl = urlAttr;
+            break;
+          }
+        }
+
+        // 2. Try enclosure
+        if (!imageUrl) {
+          const enclosure = item.querySelector('enclosure');
+          const type = enclosure?.getAttribute('type') || '';
+          if (type.startsWith('image/') && enclosure?.getAttribute('url')) {
+            imageUrl = enclosure.getAttribute('url')!;
+          }
+        }
+
+        // 3. Try parsing description/content for an <img> tag
+        if (!imageUrl) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = description;
+            const img = tempDiv.querySelector('img');
+            if (img && img.src) {
+                imageUrl = img.src;
+            }
+        }
+
         // Extract a "PMID" equivalent or generate a unique ID
         const id = item.querySelector('guid, id')?.textContent || `rss-${url}-${index}`;
 
@@ -40,7 +73,8 @@ export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
           authors: [author.trim()],
           journal: new URL(url).hostname.replace('www.', ''),
           pubDate: pubDate ? new Date(pubDate).toLocaleDateString() : 'Recent',
-          publicationTypes: []
+          publicationTypes: [],
+          imageUrl: imageUrl || undefined
         });
       });
     } catch (error) {

@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [rssArticles, setRssArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRss, setLoadingRss] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,11 +66,20 @@ const App: React.FC = () => {
   const [startMonth, setStartMonth] = useState<string>(defaultMonth);
 
   // Default RSS Feeds
-  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml`;
+  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml\nhttps://rss.app/feeds/FapeoT8Vy9H3OsUD.xml\nhttps://rss.app/feeds/SvzZQYyhjGOEkNo1.xml\nhttps://rss.app/feeds/OEeGZDeglK5vTO14.xml`;
+
+  // Helper to safely get rss feeds, allowing empty string to be valid
+  const getInitialRssFeeds = () => {
+    const saved = localStorage.getItem('rss_feeds');
+    if (saved !== null) {
+      return saved;
+    }
+    return DEFAULT_RSS_FEEDS;
+  };
 
   // Active settings state (used for fetching)
   const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '');
-  const [rssFeeds, setRssFeeds] = useState<string>(localStorage.getItem('rss_feeds') || DEFAULT_RSS_FEEDS);
+  const [rssFeeds, setRssFeeds] = useState<string>(getInitialRssFeeds());
 
   // Draft settings state (used in the modal)
   const [draftApiKey, setDraftApiKey] = useState(apiKey);
@@ -132,7 +142,7 @@ const App: React.FC = () => {
       if (activeView !== 'news' && rssArticles.length > 0) return;
 
       try {
-        setLoading(true);
+        setLoadingRss(true);
         let rssData: Article[] = [];
         if (rssFeeds.trim()) {
            const urls = rssFeeds.split('\n').map(u => u.trim()).filter(u => u);
@@ -144,12 +154,12 @@ const App: React.FC = () => {
       } catch (err) {
         console.error("Failed to load RSS feeds", err);
       } finally {
-        setLoading(false);
+        setLoadingRss(false);
       }
     };
 
     loadRss();
-  }, [rssFeeds, activeView, rssArticles.length]);
+  }, [rssFeeds, activeView]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,7 +369,7 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            {loading ? (
+            {loadingRss ? (
               <div className="flex justify-center items-center h-64">
                 <Loader2 className="h-8 w-8 text-orange-500 animate-spin" />
               </div>
@@ -379,31 +389,49 @@ const App: React.FC = () => {
                     className="bg-white border border-orange-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
                   >
                     <div className="p-5 sm:p-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
+                      <div className="flex flex-col sm:flex-row gap-6">
+                        {article.imageUrl && (
+                          <div className="w-full sm:w-48 shrink-0">
+                            <img
+                              src={article.imageUrl}
+                              alt={article.title}
+                              className="w-full h-32 sm:h-full object-cover rounded-md border border-slate-100"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
                               RSS
                             </span>
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded">
-                              {article.journal}
-                            </span>
-                            <span className="text-xs font-medium text-slate-400">
-                              {article.pubDate || 'Recent'}
-                            </span>
+                              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded">
+                                {article.journal}
+                              </span>
+                              <span className="text-xs font-medium text-slate-400">
+                                {article.pubDate || 'Recent'}
+                              </span>
+                            </div>
+
+                            <h3 className="text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors">
+                              {article.title}
+                            </h3>
+
+                            <p className="text-sm text-slate-600 line-clamp-1 mb-3">
+                              {article.authors.join(', ')}
+                            </p>
                           </div>
 
-                          <h3 className="text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors">
-                            {article.title}
-                          </h3>
+                          <div className="flex justify-between items-center mt-auto pt-2">
+                            <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-1">
+                              {expandedArticleId === article.id ? (
+                                <>Hide Summary <ChevronUp className="h-4 w-4" /></>
+                              ) : (
+                                <>Read Summary <ChevronDown className="h-4 w-4" /></>
+                              )}
+                            </span>
 
-                          <p className="text-sm text-slate-600 line-clamp-1 mb-3">
-                            {article.authors.join(', ')}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-2 shrink-0">
-                          <a
+                            <a
                             href={article.id.replace('rss-', '')} // Simple way to reconstruct URL if guid was used
                             target="_blank"
                             rel="noopener noreferrer"
@@ -420,22 +448,13 @@ const App: React.FC = () => {
                                 }
                                 e.stopPropagation();
                             }}
-                            className="inline-flex items-center justify-center p-2 bg-slate-50 text-slate-500 rounded hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                            title="Read Original Article"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                              className="inline-flex items-center justify-center p-2 bg-slate-50 text-slate-500 rounded hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                              title="Read Original Article"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-50">
-                        <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-1">
-                          {expandedArticleId === article.id ? (
-                            <>Hide Summary <ChevronUp className="h-4 w-4" /></>
-                          ) : (
-                            <>Read Summary <ChevronDown className="h-4 w-4" /></>
-                          )}
-                        </span>
                       </div>
 
                       <AnimatePresence>
