@@ -6,6 +6,7 @@ import { fetchRssFeeds } from './services/rss';
 import DOMPurify from 'dompurify';
 
 const CLINICAL_SPECIALTIES = [
+  'General Medicine', 'Internal Medicine', 'Family Medicine',
   'Cardiology', 'Neurology', 'Oncology', 'Gastroenterology',
   'Pulmonology', 'Endocrinology', 'Nephrology', 'Rheumatology',
   'Infectious Disease', 'Hematology', 'Dermatology', 'Psychiatry',
