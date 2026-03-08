@@ -9,7 +9,7 @@ export interface Article {
   publicationTypes: string[];
 }
 
-const JOURNALS = [
+export const JOURNALS = [
   '"New England Journal of Medicine"[Journal]',
   '"JAMA"[Journal]',
   '"Lancet"[Journal]',
@@ -183,10 +183,12 @@ export const fetchArticles = async (
   page: number = 1,
   articlesPerPage: number = 10,
   startYear?: string,
-  startMonth?: string
+  startMonth?: string,
+  specificJournals: string[] = []
 ): Promise<{ articles: Article[]; totalPages: number; totalResults: number }> => {
   try {
-    const journalQuery = `(${JOURNALS.join(' OR ')})`;
+    const selectedJournals = specificJournals.length > 0 ? specificJournals : JOURNALS;
+    const journalQuery = `(${selectedJournals.join(' OR ')})`;
     const keywordQuery = keyword ? ` AND (${keyword})` : '';
     const specialtiesQuery = specialties.length > 0 ? ` AND (${specialties.map(s => `"${s}"[Mesh] OR "${s}"[Title/Abstract]`).join(' OR ')})` : '';
 

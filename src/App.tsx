@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Settings, ChevronDown, ChevronUp, ExternalLink, Activity, BookOpen, Loader2, Star } from 'lucide-react';
-import { fetchArticles, fetchSimilarArticles, isTrackedJournal, type Article } from './services/pubmed';
+import { fetchArticles, fetchSimilarArticles, isTrackedJournal, JOURNALS, type Article } from './services/pubmed';
 import { fetchRssFeeds } from './services/rss';
 import DOMPurify from 'dompurify';
 
@@ -54,6 +54,7 @@ const App: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedStudyTypes, setSelectedStudyTypes] = useState<string[]>([]);
+  const [selectedJournals, setSelectedJournals] = useState<string[]>([]);
 
   // Date filter state
   const currentDate = new Date();
@@ -99,7 +100,8 @@ const App: React.FC = () => {
           page,
           10,
           startYear,
-          startMonth
+          startMonth,
+          selectedJournals
         );
 
         // Fetch RSS data
@@ -124,7 +126,7 @@ const App: React.FC = () => {
     };
 
     loadArticles();
-  }, [searchTerm, selectedSpecialties, selectedStudyTypes, page, apiKey, rssFeeds, startYear, startMonth]);
+  }, [searchTerm, selectedSpecialties, selectedStudyTypes, page, apiKey, rssFeeds, startYear, startMonth, selectedJournals]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,6 +176,15 @@ const App: React.FC = () => {
       prev.includes(studyType)
         ? prev.filter(s => s !== studyType)
         : [...prev, studyType]
+    );
+    setPage(1);
+  };
+
+  const toggleJournal = (journal: string) => {
+    setSelectedJournals(prev =>
+      prev.includes(journal)
+        ? prev.filter(j => j !== journal)
+        : [...prev, journal]
     );
     setPage(1);
   };
@@ -380,6 +391,28 @@ const App: React.FC = () => {
                     {type.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Filter by Specific Journals</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {JOURNALS.map(journal => {
+                  const displayName = journal.replace(/\[Journal\]/i, '').replace(/"/g, '');
+                  return (
+                    <label key={journal} className="flex items-start space-x-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selectedJournals.includes(journal)}
+                        onChange={() => toggleJournal(journal)}
+                        className="mt-1 h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                      <span className="text-sm text-slate-700 group-hover:text-slate-900 transition-colors leading-snug">
+                        {displayName}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
