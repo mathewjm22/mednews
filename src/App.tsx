@@ -378,9 +378,21 @@ const App: React.FC = () => {
                 <p className="text-slate-500 text-lg">No news found. Check your RSS feed settings.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {rssArticles.map((article, index) => (
-                  <motion.div
+              <div className="space-y-12">
+                {Object.entries(
+                  rssArticles.reduce((acc, article) => {
+                    if (!acc[article.journal]) acc[article.journal] = [];
+                    acc[article.journal].push(article);
+                    return acc;
+                  }, {} as Record<string, typeof rssArticles>)
+                ).map(([source, articlesInSource]) => (
+                  <div key={source} className="space-y-4">
+                    <h3 className="text-xl font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">
+                      {source}
+                    </h3>
+                    <div className="space-y-4">
+                      {articlesInSource.map((article, index) => (
+                        <motion.div
                     key={article.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -457,29 +469,32 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
-                      <AnimatePresence>
-                        {expandedArticleId === article.id && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                              {article.abstract ? (
-                                <div
-                                  className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
-                                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
-                                />
-                              ) : (
-                                <p className="text-sm text-slate-500 italic">No summary available.</p>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                          <AnimatePresence>
+                            {expandedArticleId === article.id && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                  {article.abstract ? (
+                                    <div
+                                      className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
+                                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-slate-500 italic">No summary available.</p>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </motion.div>
+                    ))}
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
