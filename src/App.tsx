@@ -84,17 +84,33 @@ https://www.drugs.com/feeds/clinical_trials.xml
 https://www.drugs.com/feeds/medical_news.xml
 https://www.drugs.com/feeds/headline_news.xml`;
 
-  // Helper to safely get rss feeds, allowing empty string to be valid
+  // Helper to safely get rss feeds, merging saved feeds with new defaults only once
   const getInitialRssFeeds = () => {
     const saved = localStorage.getItem('rss_feeds');
+    const migrated = localStorage.getItem('rss_feeds_migrated_v2');
+
     if (saved !== null) {
+      // If the user already has saved feeds but hasn't received the new v2 defaults, merge them ONCE
+      if (!migrated) {
+        const savedUrls = saved.split('\n').map(url => url.trim()).filter(Boolean);
+        const defaultUrls = DEFAULT_RSS_FEEDS.split('\n').map(url => url.trim()).filter(Boolean);
+        const combinedUrls = new Set([...savedUrls, ...defaultUrls]);
+
+        const mergedFeeds = Array.from(combinedUrls).join('\n');
+        localStorage.setItem('rss_feeds', mergedFeeds);
+        localStorage.setItem('rss_feeds_migrated_v2', 'true');
+        return mergedFeeds;
+      }
       return saved;
     }
+
+    // New user: mark them as migrated and return defaults
+    localStorage.setItem('rss_feeds_migrated_v2', 'true');
     return DEFAULT_RSS_FEEDS;
   };
 
   // Active settings state (used for fetching)
-  const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || import.meta.env.VITE_NCBI_API_KEY || '43f86f1a22f7ed2935b82d290664885b0808');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || import.meta.env.VITE_NCBI_API_KEY || '');
   const [rssFeeds, setRssFeeds] = useState<string>(getInitialRssFeeds());
 
   // Draft settings state (used in the modal)
