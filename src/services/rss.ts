@@ -23,6 +23,10 @@ export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
       // Simple RSS 2.0 or Atom parser
       const items = xmlDoc.querySelectorAll('item, entry');
 
+      // Try to get feed title for the source
+      const feedTitleNode = xmlDoc.querySelector('channel > title, feed > title');
+      let feedTitle = feedTitleNode?.textContent?.trim() || new URL(url).hostname.replace('www.', '');
+
       items.forEach((item, index) => {
         const title = item.querySelector('title')?.textContent || 'Untitled';
         const description = item.querySelector('description, summary, content')?.textContent || '';
@@ -71,7 +75,7 @@ export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
           title: title.trim(),
           abstract: description.trim(),
           authors: [author.trim()],
-          journal: new URL(url).hostname.replace('www.', ''),
+          journal: feedTitle,
           pubDate: pubDate ? new Date(pubDate).toLocaleDateString() : 'Recent',
           publicationTypes: [],
           imageUrl: imageUrl || undefined
