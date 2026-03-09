@@ -66,7 +66,7 @@ const App: React.FC = () => {
   const [startMonth, setStartMonth] = useState<string>(defaultMonth);
 
   // Default RSS Feeds
-  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml\nhttps://rss.app/feeds/FapeoT8Vy9H3OsUD.xml\nhttps://rss.app/feeds/SvzZQYyhjGOEkNo1.xml\nhttps://rss.app/feeds/OEeGZDeglK5vTO14.xml`;
+  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml\nhttps://rss.app/feeds/FapeoT8Vy9H3OsUD.xml\nhttps://rss.app/feeds/SvzZQYyhjGOEkNo1.xml\nhttps://rss.app/feeds/OEeGZDeglK5vTO14.xml\nhttps://rss.app/feeds/QMcbZWPhG3EEB9kj.xml`;
 
   // Helper to safely get rss feeds, allowing empty string to be valid
   const getInitialRssFeeds = () => {
