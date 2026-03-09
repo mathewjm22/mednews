@@ -66,7 +66,7 @@ const App: React.FC = () => {
   const [startMonth, setStartMonth] = useState<string>(defaultMonth);
 
   // Default RSS Feeds
-  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml\nhttps://rss.app/feeds/FapeoT8Vy9H3OsUD.xml\nhttps://rss.app/feeds/SvzZQYyhjGOEkNo1.xml\nhttps://rss.app/feeds/OEeGZDeglK5vTO14.xml\nhttps://rss.app/feeds/QMcbZWPhG3EEB9kj.xml`;
+  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml\nhttps://rss.app/feeds/FapeoT8Vy9H3OsUD.xml\nhttps://rss.app/feeds/SvzZQYyhjGOEkNo1.xml\nhttps://rss.app/feeds/OEeGZDeglK5vTO14.xml\nhttps://rss.app/feeds/QMcbZWPhG3EEB9kj.xml\nhttps://www.acponline.org/news/rss.xml\nhttps://feedfry.com/rss/11f11b73497d62b18735abd39a3cdc2d\nhttps://www.newswise.com/legacy/feed/top_picks.php?section=10\nhttps://www.newswise.com/legacy/feed/channels.php?channel=98\nhttps://www.newswise.com/legacy/feed/channels.php?channel=6256\nhttps://www.2minutemedicine.com/feed/\nhttps://www.2minutemedicine.com/category/chronic-disease/feed/\nhttps://feedfry.com/rss/11f11b742cdd2347b1a98af2d7dcb420\nhttps://www.drugs.com/feeds/clinical_trials.xml\nhttps://www.drugs.com/feeds/medical_news.xml\nhttps://www.drugs.com/feeds/headline_news.xml`;
 
   // Helper to safely get rss feeds, allowing empty string to be valid
   const getInitialRssFeeds = () => {
@@ -78,7 +78,7 @@ const App: React.FC = () => {
   };
 
   // Active settings state (used for fetching)
-  const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('pubmed_api_key') || '43f86f1a22f7ed2935b82d290664885b0808');
   const [rssFeeds, setRssFeeds] = useState<string>(getInitialRssFeeds());
 
   // Draft settings state (used in the modal)
@@ -378,123 +378,102 @@ const App: React.FC = () => {
                 <p className="text-slate-500 text-lg">No news found. Check your RSS feed settings.</p>
               </div>
             ) : (
-              <div className="space-y-12">
-                {Object.entries(
-                  rssArticles.reduce((acc, article) => {
-                    if (!acc[article.journal]) acc[article.journal] = [];
-                    acc[article.journal].push(article);
-                    return acc;
-                  }, {} as Record<string, typeof rssArticles>)
-                ).map(([source, articlesInSource]) => (
-                  <div key={source} className="space-y-4">
-                    <h3 className="text-xl font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">
-                      {source}
-                    </h3>
-                    <div className="space-y-4">
-                      {articlesInSource.map((article, index) => (
-                        <motion.div
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {rssArticles.map((article, index) => (
+                  <motion.div
                     key={article.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    transition={{ duration: 0.3, delay: (index % 12) * 0.05 }}
                     onClick={() => toggleExpand(article.id, article.pmid)}
-                    className="bg-white border border-orange-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                    className="bg-white border border-orange-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col h-full group"
                   >
-                    <div className="p-5 sm:p-6">
-                      <div className="flex flex-col sm:flex-row gap-6">
-                        {article.imageUrl && (
-                          <div className="w-full sm:w-48 shrink-0">
-                            <img
-                              src={article.imageUrl}
-                              alt={article.title}
-                              className="w-full h-32 sm:h-full object-cover rounded-md border border-slate-100"
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1 flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
-                              RSS
-                            </span>
-                              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded">
-                                {article.journal}
-                              </span>
-                              <span className="text-xs font-medium text-slate-400">
-                                {article.pubDate || 'Recent'}
-                              </span>
-                            </div>
-
-                            <h3 className="text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors">
-                              {article.title}
-                            </h3>
-
-                            <p className="text-sm text-slate-600 line-clamp-1 mb-3">
-                              {article.authors.join(', ')}
-                            </p>
-                          </div>
-
-                          <div className="flex justify-between items-center mt-auto pt-2">
-                            <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-1">
-                              {expandedArticleId === article.id ? (
-                                <>Hide Summary <ChevronUp className="h-4 w-4" /></>
-                              ) : (
-                                <>Read Summary <ChevronDown className="h-4 w-4" /></>
-                              )}
-                            </span>
-
-                            <a
-                            href={article.id.replace('rss-', '')} // Simple way to reconstruct URL if guid was used
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => {
-                                // If it's a real URL, open it, otherwise try to extract it from the id
-                                if (article.id.startsWith('http')) {
-                                   // do nothing, let default behavior happen
-                                } else {
-                                   e.preventDefault();
-                                   const match = article.id.match(/rss-(https?:\/\/[^\-]+)-/);
-                                   if (match && match[1]) {
-                                      window.open(match[1], '_blank');
-                                   }
-                                }
-                                e.stopPropagation();
-                            }}
-                              className="inline-flex items-center justify-center p-2 bg-slate-50 text-slate-500 rounded hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                              title="Read Original Article"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </div>
+                    {article.imageUrl && (
+                      <div className="w-full h-48 shrink-0 border-b border-slate-100">
+                        <img
+                          src={article.imageUrl}
+                          alt={article.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
+                            RSS
+                          </span>
+                          <span className="text-sm font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-md border border-indigo-100 w-full mb-1 flex items-center justify-between">
+                            <span>{article.journal}</span>
+                            <span className="text-[10px] font-medium text-indigo-400 normal-case">{article.pubDate || 'Recent'}</span>
+                          </span>
                         </div>
+
+                        <h3 className="text-lg font-bold text-slate-900 leading-snug mb-2 group-hover:text-blue-700 transition-colors line-clamp-3">
+                          {article.title}
+                        </h3>
+
+                        <p className="text-sm text-slate-600 line-clamp-2 mb-3">
+                          {article.authors.join(', ')}
+                        </p>
                       </div>
 
-                          <AnimatePresence>
-                            {expandedArticleId === article.id && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="mt-4 pt-4 border-t border-slate-100">
-                                  {article.abstract ? (
-                                    <div
-                                      className="text-[15px] text-slate-800 leading-relaxed space-y-4 font-serif"
-                                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
-                                    />
-                                  ) : (
-                                    <p className="text-sm text-slate-500 italic">No summary available.</p>
-                                  )}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </motion.div>
-                    ))}
+                      <div className="flex justify-between items-center mt-auto pt-4 border-t border-slate-100 gap-2">
+                        <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-1 cursor-pointer">
+                          {expandedArticleId === article.id ? (
+                            <>Hide <ChevronUp className="h-4 w-4" /></>
+                          ) : (
+                            <>Summary <ChevronDown className="h-4 w-4" /></>
+                          )}
+                        </span>
+
+                        <a
+                          href={article.id.replace('rss-', '')} // Simple way to reconstruct URL if guid was used
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                              // If it's a real URL, open it, otherwise try to extract it from the id
+                              if (article.id.startsWith('http')) {
+                                 // do nothing, let default behavior happen
+                              } else {
+                                 e.preventDefault();
+                                 const match = article.id.match(/rss-(https?:\/\/[^\-]+)-/);
+                                 if (match && match[1]) {
+                                    window.open(match[1], '_blank');
+                                 }
+                              }
+                              e.stopPropagation();
+                          }}
+                          className="inline-flex items-center justify-center px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-semibold rounded-md hover:bg-blue-100 transition-colors"
+                          title="Read Original Article"
+                        >
+                          Read Original <ExternalLink className="h-4 w-4 ml-1" />
+                        </a>
+                      </div>
+
+                      <AnimatePresence>
+                        {expandedArticleId === article.id && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              {article.abstract ? (
+                                <div
+                                  className="text-[14px] text-slate-800 leading-relaxed space-y-4 font-serif"
+                                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.abstract) }}
+                                />
+                              ) : (
+                                <p className="text-sm text-slate-500 italic">No summary available.</p>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
