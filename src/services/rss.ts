@@ -1,12 +1,16 @@
 import type { Article } from './pubmed';
 
-const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 5000) => {
+const fetchTextWithTimeout = async (url: string, options: RequestInit = {}, timeout = 8000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const text = await response.text();
     clearTimeout(id);
-    return response;
+    return text;
   } catch (err) {
     clearTimeout(id);
     throw err;
@@ -23,30 +27,27 @@ export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
       // Trying different proxies if one fails. Some proxies block certain domains or have limits.
       let text = '';
 
-      try {
-        const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-        if (!res.ok) throw new Error('allorigins failed');
-        const data = await res.json();
-        if (!data.contents) throw new Error('no contents from allorigins');
-        text = data.contents;
+      // Sequential fallback of proxies to avoid multiple 429s from hitting a broken proxy repeatedly
+      const proxies = [
+        `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+      ];
 
-        // allorigins sometimes returns base64 encoded data URI
-        if (text.startsWith('data:')) {
-          const parts = text.split(',');
-          if (parts.length > 1) {
-            text = decodeURIComponent(escape(atob(parts[1])));
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          text = await fetchTextWithTimeout(proxies[i]);
+          if (text && text.includes('<rss') || text.includes('<feed')) {
+            break; // Valid XML fetched
+          }
+        } catch (e) {
+          if (i === proxies.length - 1) {
+             console.warn(`Failed to fetch RSS feed via proxies: ${url}`);
+             return;
           }
         }
-      } catch (err1) {
-        try {
-          const res = await fetchWithTimeout(`https://corsproxy.io/?url=${encodeURIComponent(url)}`);
-          if (!res.ok) throw new Error('corsproxy failed');
-          text = await res.text();
-        } catch (err2) {
-           console.warn(`Failed to fetch RSS feed via proxies: ${url}`);
-           return;
-        }
       }
+
+      if (!text) return;
 
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(text, 'text/xml');
