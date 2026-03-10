@@ -1,22 +1,53 @@
 import type { Article } from './pubmed';
 
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 5000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+};
+
 export const fetchRssFeeds = async (urls: string[]): Promise<Article[]> => {
   if (!urls || urls.length === 0) return [];
 
   const articles: Article[] = [];
 
-  // Use a CORS proxy for RSS feeds since most don't have CORS enabled
-  const corsProxy = 'https://corsproxy.io/?url=';
-
   const promises = urls.map(async (url) => {
     try {
-      const response = await fetch(`${corsProxy}${encodeURIComponent(url)}`);
-      if (!response.ok) {
-        console.warn(`Failed to fetch RSS feed: ${url}`);
-        return;
+      // Trying different proxies if one fails. Some proxies block certain domains or have limits.
+      let text = '';
+
+      try {
+        const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error('allorigins failed');
+        const data = await res.json();
+        if (!data.contents) throw new Error('no contents from allorigins');
+        text = data.contents;
+
+        // allorigins sometimes returns base64 encoded data URI
+        if (text.startsWith('data:')) {
+          const parts = text.split(',');
+          if (parts.length > 1) {
+            text = decodeURIComponent(escape(atob(parts[1])));
+          }
+        }
+      } catch (err1) {
+        try {
+          const res = await fetchWithTimeout(`https://corsproxy.io/?url=${encodeURIComponent(url)}`);
+          if (!res.ok) throw new Error('corsproxy failed');
+          text = await res.text();
+        } catch (err2) {
+           console.warn(`Failed to fetch RSS feed via proxies: ${url}`);
+           return;
+        }
       }
 
-      const text = await response.text();
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(text, 'text/xml');
 

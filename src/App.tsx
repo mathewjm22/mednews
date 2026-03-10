@@ -66,10 +66,35 @@ const App: React.FC = () => {
   const [startMonth, setStartMonth] = useState<string>(defaultMonth);
 
   // Default RSS Feeds
-  const DEFAULT_RSS_FEEDS = `https://www.medscape.com/cx/rssfeeds/2736.xml\nhttps://www.medicalnewstoday.com/rss/medicalnews.xml\nhttps://rss.app/feeds/FapeoT8Vy9H3OsUD.xml\nhttps://rss.app/feeds/SvzZQYyhjGOEkNo1.xml\nhttps://rss.app/feeds/OEeGZDeglK5vTO14.xml\nhttps://rss.app/feeds/QMcbZWPhG3EEB9kj.xml`;
+  const DEFAULT_RSS_FEEDS = `https://rss.app/feeds/FapeoT8Vy9H3OsUD.xml
+https://rss.app/feeds/tXVdSKEVoRrHsdQR.xml
+https://rss.app/feeds/SvzZQYyhjGOEkNo1.xml
+https://rss.app/feeds/tTXcZrMN6MgRXFtd.xml
+https://rss.app/feeds/OEeGZDeglK5vTO14.xml
+https://rss.app/feeds/QMcbZWPhG3EEB9kj.xml
+https://feeder.co/discover/0989fc10fa/news-google-com-search-q-clinical-medicine-when-7d-hl-en-us-gl-us-ceid-us-en
+https://feeder.co/discover/f9b7cc1752/medicalnewsbulletin-com
+https://feeder.co/discover/a324172972/healio-com
+https://feeder.co/discover/a94a6518ec/medicaldaily-com
+https://feeder.co/discover/af9322a7d1/statnews-com
+https://feeder.co/discover/1890156fe1/kevinmd-com
+https://feeder.co/discover/60720a3a96/npr-org-templates-story-story-php-storyid-1128
+https://feeder.co/discover/8942a37e35/statnews-com
+https://feedfry.com/rss/11f11b73497d62b18735abd39a3cdc2d
+https://feedfry.com/rss/11f11b742cdd2347b1a98af2d7dcb420`;
 
   // Helper to safely get rss feeds, allowing empty string to be valid
   const getInitialRssFeeds = () => {
+    // Check if we've already run the one-time migration for the new 16 defaults
+    const hasMigrated = localStorage.getItem('rss_feeds_migrated_v2');
+    if (!hasMigrated) {
+      // Force the new default feeds to show up, overriding old lists
+      localStorage.setItem('rss_feeds', DEFAULT_RSS_FEEDS);
+      localStorage.setItem('rss_feeds_migrated_v2', 'true');
+      return DEFAULT_RSS_FEEDS;
+    }
+
+    // Otherwise, respect whatever the user has saved (including an empty string)
     const saved = localStorage.getItem('rss_feeds');
     if (saved !== null) {
       return saved;
