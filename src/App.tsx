@@ -85,20 +85,8 @@ https://feedfry.com/rss/11f11b742cdd2347b1a98af2d7dcb420`;
 
   // Helper to safely get rss feeds, allowing empty string to be valid
   const getInitialRssFeeds = () => {
-    // Check if we've already run the one-time migration for the new 16 defaults
-    const hasMigrated = localStorage.getItem('rss_feeds_migrated_v2');
-    if (!hasMigrated) {
-      // Force the new default feeds to show up, overriding old lists
-      localStorage.setItem('rss_feeds', DEFAULT_RSS_FEEDS);
-      localStorage.setItem('rss_feeds_migrated_v2', 'true');
-      return DEFAULT_RSS_FEEDS;
-    }
-
-    // Otherwise, respect whatever the user has saved (including an empty string)
-    const saved = localStorage.getItem('rss_feeds');
-    if (saved !== null) {
-      return saved;
-    }
+    // Force the new default feeds to show up always, overriding any custom feeds
+    localStorage.setItem('rss_feeds', DEFAULT_RSS_FEEDS);
     return DEFAULT_RSS_FEEDS;
   };
 
