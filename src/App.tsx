@@ -415,7 +415,7 @@ https://feedfry.com/rss/11f11b742cdd2347b1a98af2d7dcb420`;
                     <h3 className="text-xl font-bold text-slate-700 border-b border-slate-200 pb-2 mb-4">
                       {source}
                     </h3>
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                       {articlesInSource.map((article, index) => (
                         <motion.div
                     key={article.id}
@@ -423,16 +423,16 @@ https://feedfry.com/rss/11f11b742cdd2347b1a98af2d7dcb420`;
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
                     onClick={() => toggleExpand(article.id, article.pmid)}
-                    className="bg-white border border-orange-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                    className="bg-white border border-orange-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col h-full"
                   >
-                    <div className="p-5 sm:p-6">
-                      <div className="flex flex-col sm:flex-row gap-6">
+                    <div className="p-4 flex flex-col h-full">
+                      <div className="flex flex-col gap-4 flex-1">
                         {article.imageUrl && (
-                          <div className="w-full sm:w-48 shrink-0">
+                          <div className="w-full shrink-0">
                             <img
                               src={article.imageUrl}
                               alt={article.title}
-                              className="w-full h-32 sm:h-full object-cover rounded-md border border-slate-100"
+                              className="w-full h-40 object-cover rounded-md border border-slate-100"
                             />
                           </div>
                         )}
